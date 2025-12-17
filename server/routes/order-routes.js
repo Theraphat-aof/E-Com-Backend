@@ -6,12 +6,10 @@ const stripe = require("stripe")(
   "sk_test_51SeSSxGXttjtdRAX1PYBSZNlp65jZrjEagyLoKTdxCKxHZ3PhIz0GTbk9UJCT1Db5hGYqDChFsqIHNyvvptttuCa00xWcBP1HG"
 );
 
-// API สำหรับสร้าง Payment Intent
 router.post("/create-payment-intent", async (req, res) => {
   const { items } = req.body;
 
   const calculateOrderAmount = (items) => {
-    // ใน Production ต้องดึงราคาจาก DB นะครับ
     const total = items.reduce(
       (sum, item) => sum + item.price * item.quantity,
       0
@@ -31,7 +29,7 @@ router.post("/create-payment-intent", async (req, res) => {
   }
 });
 
-// POST /api/orders - สั่งซื้อสินค้า
+// POST สั่งซื้อสินค้า
 router.post('/place-order', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -39,7 +37,6 @@ router.post('/place-order', async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Insert Orders
     const orderQuery = `
       INSERT INTO orders (user_id, total_amount, shipping_name, shipping_address, shipping_phone, status)
       VALUES ($1, $2, $3, $4, $5, 'pending')
@@ -49,7 +46,6 @@ router.post('/place-order', async (req, res) => {
     const orderResult = await client.query(orderQuery, orderValues);
     const orderId = orderResult.rows[0].id;
 
-    // Insert Order Items
     for (const item of items) {
       await client.query(
         'INSERT INTO order_items (order_id, product_id, quantity, price_at_purchase) VALUES ($1, $2, $3, $4)',
@@ -73,15 +69,12 @@ router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     
-    // ดึงข้อมูล Orders
     const ordersResult = await pool.query(
       'SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC', 
       [userId]
     );
     const orders = ordersResult.rows;
 
-    // ดึงข้อมูล Items ของแต่ละ Order (แบบบ้านๆ วนลูป)
-    // ของจริงควรใช้ JOIN หรือ JSON Aggregation ใน SQL เดียว
     for (let order of orders) {
       const itemsResult = await pool.query(
         `SELECT oi.*, p.name, p.image_url 
@@ -94,6 +87,28 @@ router.get('/user/:userId', async (req, res) => {
     }
 
     res.json(orders);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// PATCH อัปเดตสถานะออเดอร์
+router.patch('/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body; 
+
+    const result = await pool.query(
+      'UPDATE orders SET status = $1 WHERE id = $2 RETURNING *',
+      [status, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.json(result.rows[0]);
   } catch (err) {
     console.error(err);
     res.status(500).send('Server Error');
