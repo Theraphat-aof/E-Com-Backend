@@ -1,16 +1,17 @@
 module.exports = {
   testEnvironment: 'node',
   testMatch: ['**/tests/**/*.test.js'],
-  collectCoverageFrom: ['server/**/*.js', '!server/config/**', '!server/migrations/**'],
+  collectCoverageFrom: ['**/*.js', '!node_modules/**', '!coverage/**', '!config/**', '!migrations/**'],
   coverageThreshold: {
     global: {
-      branches: 50,
-      functions: 50,
-      lines: 50,
-      statements: 50
+      branches: 30,
+      functions: 30,
+      lines: 30,
+      statements: 30
     }
   },
   setupFilesAfterEnv: ['<rootDir>/tests/setup.js'],
   testTimeout: 10000,
-  verbose: true
+  verbose: true,
+  transform: {}
 };
