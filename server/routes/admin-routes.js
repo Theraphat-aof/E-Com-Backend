@@ -1,21 +1,21 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
-const { checkAdmin } = require('../middleware/auth'); // เรียกใช้ Middleware ที่แยกไว้
+// ✅ Import มาถูกต้องแล้ว ใช้ตัวแปรพวกนี้แทน checkAdmin
+const { authenticateUser, authorizeAdmin } = require('../middleware/auth');
+const loggerService = require('../services/logger-service');
 
-// ฟังก์ชันสุ่มเลขพัสดุ (Helper Function) สำหรับทดสอบ ของจริงต้องใช้เลขพัสดุจากผู้ให้บริการขนส่ง
 const generateTrackingNumber = () => {
   const randomNum = Math.floor(100000000 + Math.random() * 900000000);
-  return `TH${randomNum}`; 
+  return `TH${randomNum}`;
 };
 
 // --------------------------------------------------------
-// 1. GET: ดึงออเดอร์ทั้งหมด + รายการสินค้าข้างใน (ใช้ JSON_AGG)
+// 1. GET: ดึงออเดอร์ทั้งหมด
 // --------------------------------------------------------
-router.get('/orders', checkAdmin, async (req, res) => {
+// ❌ แก้จาก checkAdmin เป็น authenticateUser, authorizeAdmin
+router.get('/orders', authenticateUser, authorizeAdmin, async (req, res) => {
   try {
-    // ใช้ SQL Join + JSON_AGG เพื่อให้ได้ข้อมูลครบจบใน Query เดียว
-    // ไม่ต้องไปวน Loop ยิง DB ทีละออเดอร์ (แก้ปัญหา N+1 Query)
     const query = `
       SELECT 
         o.id, o.total_amount, o.status, o.created_at, o.tracking_number,
@@ -39,7 +39,6 @@ router.get('/orders', checkAdmin, async (req, res) => {
 
     const result = await pool.query(query);
     res.json(result.rows);
-
   } catch (err) {
     console.error(err);
     res.status(500).send('Server Error');
@@ -47,77 +46,119 @@ router.get('/orders', checkAdmin, async (req, res) => {
 });
 
 // --------------------------------------------------------
-// 2. PATCH: อัปเดตสถานะ (Shipped -> สร้าง Tracking Number)
+// 2. PATCH: อัปเดตสถานะ
 // --------------------------------------------------------
-router.patch('/orders/:id/status', checkAdmin, async (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body; // รับค่า status เช่น 'shipped', 'cancelled'
-
+router.patch('/orders/:id/status', authenticateUser, authorizeAdmin, async (req, res) => {
   const client = await pool.connect();
-
   try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const validStatuses = ['pending', 'paid', 'shipped', 'completed', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
     await client.query('BEGIN');
 
-    let query = '';
-    let values = [];
+    const oldOrder = await client.query('SELECT * FROM orders WHERE id = $1', [id]);
 
-    // Logic: ถ้าเปลี่ยนเป็น 'shipped' และยังไม่มีเลขพัสดุ -> ให้สร้างเลขใหม่
-    if (status === 'shipped') {
-       // เช็คก่อนว่ามีเลขหรือยัง
-       const checkOrder = await client.query('SELECT tracking_number FROM orders WHERE id = $1', [id]);
-       
-       if (!checkOrder.rows[0].tracking_number) {
-           const trackingNumber = generateTrackingNumber();
-           query = 'UPDATE orders SET status = $1, tracking_number = $2 WHERE id = $3 RETURNING *';
-           values = [status, trackingNumber, id];
-       } else {
-           // มีเลขแล้ว อัปเดตแค่สถานะ
-           query = 'UPDATE orders SET status = $1 WHERE id = $2 RETURNING *';
-           values = [status, id];
-       }
-    } else {
-       // สถานะอื่นๆ อัปเดตปกติ
-       query = 'UPDATE orders SET status = $1 WHERE id = $2 RETURNING *';
-       values = [status, id];
-    }
-
-    const result = await client.query(query, values);
-
-    if (result.rows.length === 0) {
+    if (oldOrder.rows.length === 0) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ message: 'Order not found' });
+      return res.status(404).json({ error: 'Order not found' });
     }
+
+    // ✅ ประกาศตัวแปร result ไว้ข้างนอก เพื่อให้ใช้ได้ครอบคลุมทุกบล็อก if/else
+    let result;
+
+    if (status === 'shipped') {
+      const checkOrder = await client.query('SELECT tracking_number FROM orders WHERE id = $1', [
+        id
+      ]);
+
+      if (!checkOrder.rows[0].tracking_number) {
+        const trackingNumber = generateTrackingNumber();
+        // Case 1: Shipped + New Tracking
+        result = await client.query(
+          'UPDATE orders SET status = $1, tracking_number = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
+          [status, trackingNumber, id]
+        );
+      } else {
+        // Case 2: Shipped but has Tracking
+        result = await client.query(
+          'UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+          [status, id]
+        );
+      }
+    } else {
+      // Case 3: Normal Status Update
+      result = await client.query(
+        'UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+        [status, id]
+      );
+    }
+
+    // ✅ บันทึก Log (ย้ายมาไว้รวมกันตรงนี้ได้ เพราะ result มีค่าแล้ว)
+    await loggerService.logAction(
+      req.userId,
+      'UPDATE_ORDER_STATUS',
+      'orders',
+      id,
+      oldOrder.rows[0],
+      result.rows[0],
+      req.ip
+    );
 
     await client.query('COMMIT');
     res.json(result.rows[0]);
-
   } catch (err) {
     await client.query('ROLLBACK');
     console.error(err);
-    res.status(500).send('Server Error');
+    res.status(500).json({ error: 'Server Error' });
   } finally {
     client.release();
   }
 });
 
 // --------------------------------------------------------
-// 3. GET: Dashboard Stats (แถมให้: ดูยอดขายรวม/จำนวนออเดอร์)
+// 3. GET: Dashboard Stats
 // --------------------------------------------------------
-router.get('/stats', checkAdmin, async (req, res) => {
-    try {
-        const statsQuery = `
+// ❌ แก้จาก checkAdmin เป็น authenticateUser, authorizeAdmin
+router.get('/stats', authenticateUser, authorizeAdmin, async (req, res) => {
+  try {
+    const statsQuery = `
             SELECT 
                 COUNT(*) as total_orders,
                 SUM(CASE WHEN status = 'paid' OR status = 'shipped' OR status = 'completed' THEN total_amount ELSE 0 END) as total_revenue,
                 COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_orders
             FROM orders
         `;
-        const result = await pool.query(statsQuery);
-        res.json(result.rows[0]);
-    } catch (err) {
-        console.error(err);
-        res.status(500).send('Server Error');
-    }
+    const result = await pool.query(statsQuery);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server Error');
+  }
+});
+
+// ... ส่วน Audit Log ถูกต้องแล้ว ...
+router.get('/audit-logs', authenticateUser, authorizeAdmin, async (req, res) => {
+  // ... code เดิม ...
+  try {
+    const { userId, action, limit = 100, offset = 0 } = req.query;
+
+    const logs = await loggerService.getAuditLog({
+      userId: userId ? parseInt(userId) : null,
+      action,
+      limit: parseInt(limit),
+      offset: parseInt(offset)
+    });
+
+    res.json(logs);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server Error' });
+  }
 });
 
 module.exports = router;

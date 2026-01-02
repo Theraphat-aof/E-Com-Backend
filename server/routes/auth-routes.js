@@ -7,49 +7,90 @@ const pool = require('../config/db');
 
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+// ✅ ตรวจสอบ JWT_SECRET
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET is not defined in .env');
+}
+
+/**
+ * @swagger
+ * {
+ * "/auth/google": {
+ * "post": {
+ * "summary": "Login with Google OAuth",
+ * "tags": ["Auth"],
+ * "requestBody": {
+ * "required": true,
+ * "content": {
+ * "application/json": {
+ * "schema": {
+ * "type": "object",
+ * "properties": {
+ * "token": { "type": "string", "description": "Google ID Token" }
+ * }
+ * }
+ * }
+ * }
+ * },
+ * "responses": {
+ * "200": { "description": "Login successful" },
+ * "401": { "description": "Authentication failed" }
+ * }
+ * }
+ * }
+ * }
+ */
+
 router.post('/google', async (req, res) => {
   try {
     const { token } = req.body;
 
-    // 1. ตรวจสอบกับ Google ว่า Token นี้ของจริงไหม
+    if (!token || typeof token !== 'string') {
+      return res.status(400).json({ error: 'Invalid token format' });
+    }
+
+    // ✅ Verify Google Token
     const ticket = await client.verifyIdToken({
       idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID,
+      audience: process.env.GOOGLE_CLIENT_ID
     });
+
     const payload = ticket.getPayload();
-    
-    // ได้ข้อมูลมาแล้ว: email, name, picture, sub (google_id)
     const { email, name, picture, sub: googleId } = payload;
 
-    // 2. เช็คว่ามี User นี้ใน Database หรือยัง?
-    let userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    // ✅ Validate email
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Invalid email from Google' });
+    }
+
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     let user = userResult.rows[0];
 
     if (!user) {
-      // 3. ถ้าไม่มี -> สมัครสมาชิกใหม่ให้เลย (Auto Register)
       const newUser = await pool.query(
-        'INSERT INTO users (username, email, google_id, profile_picture, role) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-        [name, email, googleId, picture, 'customer']
+        'INSERT INTO users (username, email, google_id, profile_picture, role) VALUES ($1, $2, $3, $4, $5) RETURNING id, email, role',
+        [name || 'User', email, googleId, picture, 'customer']
       );
       user = newUser.rows[0];
     } else {
-        // อัปเดตข้อมูลล่าสุด (เช่น รูปโปรไฟล์)
-        await pool.query('UPDATE users SET google_id = $1, profile_picture = $2 WHERE email = $3', [googleId, picture, email]);
+      await pool.query('UPDATE users SET google_id = $1, profile_picture = $2 WHERE email = $3', [
+        googleId,
+        picture,
+        email
+      ]);
     }
 
-    // 4. สร้าง JWT Token ของเว็บเราเอง (Session)
-    // ตรง 'MY_SECRET_KEY' ควรย้ายไปอยู่ใน .env จริงๆ
+    // ✅ ใช้ process.env.JWT_SECRET เท่านั้น
     const myToken = jwt.sign(
-      { userId: user.id, email: user.email, role: user.role }, 
-      process.env.JWT_SECRET || 'secret123', 
-      { expiresIn: '1d' }
+      { userId: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' } // ✅ เปลี่ยนเป็น 7d (ดีกว่า 1d)
     );
 
     res.json({ user, token: myToken });
-
   } catch (error) {
-    console.error(error);
-    res.status(401).json({ message: 'Google Login Failed' });
+    console.error('Auth error:', error.message);
+    res.status(401).json({ error: 'Authentication failed' });
   }
 });
 
