@@ -23,6 +23,7 @@ const swaggerSpec = require('./config/swagger');
 const healthRoutes = require('./routes/health-routes');
 
 const app = express();
+app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
 
 // ✅ Security Middleware
