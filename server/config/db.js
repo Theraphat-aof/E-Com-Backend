@@ -2,10 +2,10 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const isProduction = process.env.NODE_ENV === 'development'; // ทำงานจริงให้ใช้ Production
+const isProduction = process.env.NODE_ENV === 'production'; // ทำงานจริงให้ใช้ Production
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
   ssl: isProduction
     ? { rejectUnauthorized: false } // สำหรับ Production (เช่น Heroku, Render, Neon)
     : false, // สำหรับ Localhost (ปิด SSL)
