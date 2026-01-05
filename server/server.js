@@ -77,7 +77,7 @@ const server = http.createServer(app);
 // ✅ Socket.io ต้อง Authenticate
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173'],
+    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'https://hathamshop.netlify.app'],
     methods: ['GET', 'POST'],
     credentials: true
   }
