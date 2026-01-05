@@ -29,7 +29,10 @@ const port = process.env.PORT || 3000;
 app.use(helmet()); // ✅ เพิ่ม Security Headers
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'https://hathamshop.netlify.app'],
+    origin: [
+      'http://localhost:5173',
+      'https://hathamshop.netlify.app' // ✅ ใส่ตรงๆ แบบนี้ชัวร์กว่า
+    ],
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -77,7 +80,10 @@ const server = http.createServer(app);
 // ✅ Socket.io ต้อง Authenticate
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'https://hathamshop.netlify.app'],
+    origin: [
+      'http://localhost:5173',
+      'https://hathamshop.netlify.app' // ✅ ต้องตรงกัน
+    ],
     methods: ['GET', 'POST'],
     credentials: true
   }
