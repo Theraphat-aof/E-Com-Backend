@@ -29,7 +29,7 @@ const port = process.env.PORT || 3000;
 app.use(helmet()); // ✅ เพิ่ม Security Headers
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173'],
+    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:5173', 'https://hathamshop.netlify.app'],
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization']

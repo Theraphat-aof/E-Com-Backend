@@ -38,6 +38,7 @@ temp/
 # Database
 *.sql
 !migrations/*.sql
+!server/migrations/*.sql
 db.sqlite
 db.sqlite3
 
