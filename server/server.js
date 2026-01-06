@@ -32,7 +32,7 @@ app.use(
   cors({
     origin: [
       'http://localhost:5173',
-      'https://hathamshop.netlify.app' // ✅ ใส่ตรงๆ แบบนี้ชัวร์กว่า
+      'https://hathamshop.vercel.app' // ✅ ใส่ตรงๆ แบบนี้ชัวร์กว่า
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
@@ -83,7 +83,7 @@ const io = new Server(server, {
   cors: {
     origin: [
       'http://localhost:5173',
-      'https://hathamshop.netlify.app' // ✅ ต้องตรงกัน
+      'https://hathamshop.vercel.app' // ✅ ต้องตรงกัน
     ],
     methods: ['GET', 'POST'],
     credentials: true
