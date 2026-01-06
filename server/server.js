@@ -181,17 +181,27 @@ io.on('connection', (socket) => {
         return;
       }
 
-      if (typeof data.message !== 'string' || data.message.length === 0 || data.message.length > 1000) {
-        console.error(`[send_message] Invalid message from user ${socket.userId}: length=${data.message?.length}`);
+      if (
+        typeof data.message !== 'string' ||
+        data.message.length === 0 ||
+        data.message.length > 1000
+      ) {
+        console.error(
+          `[send_message] Invalid message from user ${socket.userId}: length=${data.message?.length}`
+        );
         socket.emit('error', 'Message must be 1-1000 characters');
         return;
       }
 
       console.log(`[send_message] User ${socket.userId} sending message to room ${data.room}`);
 
+      // Normalize roles: some JWTs use 'customer' instead of 'user'
+      const normalizedRole = socket.userRole === 'customer' ? 'user' : socket.userRole || 'user';
+      console.log(`[send_message] Normalized role for user ${socket.userId}: ${normalizedRole}`);
+
       const savedMsg = await chatService.saveMessage(
         data.room,
-        socket.userRole || 'user',
+        normalizedRole,
         data.message,
         socket.userId // ✅ เก็บ userId
       );
@@ -214,7 +224,7 @@ io.on('connection', (socket) => {
       // ถ้าคนส่งไม่ใช่ Admin -> แจ้งเตือนเข้าห้อง Admin (Sidebar Alert)
       if (socket.userRole !== 'admin') {
         io.to('admin_room').emit('new_message_alert', responseData);
-        console.log(`[send_message] Alert sent to admin_room`);
+        console.log('[send_message] Alert sent to admin_room');
       }
     } catch (err) {
       console.error(`[send_message] Error for user ${socket.userId}:`, err.message);
