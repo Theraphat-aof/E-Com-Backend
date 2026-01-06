@@ -8,21 +8,19 @@ const getAllProducts = async () => {
 };
 
 // ฟังก์ชันดึงสินค้าตาม ID (เผื่อใช้หน้า Detail)
-const getProductById = async (req, res) => {
+const getProductById = async (id) => {
   try {
-    const { id } = req.params; // ค่านี้จะเป็นรหัสยาวๆ ที่ส่งมาจาก Frontend
-
     // เปลี่ยน WHERE id เป็น WHERE uuid
     const result = await pool.query('SELECT * FROM products WHERE uuid = $1', [id]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Product not found' });
+      return { message: 'Product not found' };
     }
 
-    res.json(result.rows[0]);
+    return result.rows[0];
   } catch (err) {
     console.error(err);
-    res.status(500).send('Server Error');
+    return { error: 'Server Error' };
   }
 };
 
