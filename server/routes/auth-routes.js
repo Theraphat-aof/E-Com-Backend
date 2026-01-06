@@ -94,4 +94,43 @@ router.post('/google', async (req, res) => {
   }
 });
 
+router.post('/demo-login', async (req, res) => {
+  try {
+    // 1. ล็อกเป้าที่บัญชี test@example.com เท่านั้น
+    const email = 'test@example.com';
+
+    // 2. ดึงข้อมูลจาก Database
+    const userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    let user = userResult.rows[0];
+
+    // 3. (กันเหนียว) ถ้าใน DB ไม่มี test@example.com ให้สร้างใหม่กัน Error
+    // แต่ถ้ามีอยู่แล้ว มันจะข้ามส่วนนี้ไปใช้ของเดิมเลยครับ
+    if (!user) {
+      const newUser = await pool.query(
+        'INSERT INTO users (username, email, google_id, profile_picture, role) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        [
+          'Test User',
+          email,
+          'test-google-id',
+          'https://ui-avatars.com/api/?name=Test+User',
+          'customer'
+        ]
+      );
+      user = newUser.rows[0];
+    }
+
+    // 4. สร้าง Token จริง ส่งกลับไป
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, role: user.role },
+      process.env.JWT_SECRET,
+      { expiresIn: '1d' }
+    );
+
+    res.json({ user, token });
+  } catch (error) {
+    console.error('Demo Login Error:', error.message);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 module.exports = router;

@@ -240,7 +240,7 @@ io.on('connection', (socket) => {
 // Start Server
 server.listen(port, () => {
   console.log(`✅ Server running on port ${port}`);
-  console.log(`✅ WebSocket ready for connections`);
+  console.log('✅ WebSocket ready for connections');
 });
 
 // Graceful shutdown
