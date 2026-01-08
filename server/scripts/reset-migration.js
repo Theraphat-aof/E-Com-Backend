@@ -6,7 +6,6 @@ require('dotenv').config();
   try {
     console.log('🔄 Checking migrations table...');
 
-    // ตรวจสอบว่ามี migrations table ไหม
     const result = await client.query(`
       SELECT EXISTS (
         SELECT 1 FROM information_schema.tables 
@@ -19,12 +18,10 @@ require('dotenv').config();
       process.exit(0);
     }
 
-    // ดูข้อมูลใน migrations table
     const migrations = await client.query('SELECT * FROM migrations');
     console.log('Current migrations:', migrations.rows);
 
     if (migrations.rows.length > 0) {
-      // ลบ 001_update_db.sql
       await client.query('DELETE FROM migrations WHERE name = $1', ['001_update_db.sql']);
       console.log('✅ Deleted failed migration record: 001_update_db.sql');
     }

@@ -3,50 +3,6 @@ const express = require('express');
 const router = express.Router();
 const productService = require('../services/product-service');
 
-/**
- * @swagger
- * {
- * "components": {
- * "schemas": {
- * "Product": {
- * "type": "object",
- * "properties": {
- * "id": { "type": "integer" },
- * "name": { "type": "string" },
- * "price": { "type": "number" },
- * "stock_quantity": { "type": "integer" }
- * }
- * }
- * }
- * }
- * }
- */
-
-/**
- * @swagger
- * {
- * "/products": {
- * "get": {
- * "summary": "ดึงรายการสินค้าทั้งหมด",
- * "tags": ["Products"],
- * "responses": {
- * "200": {
- * "description": "รายชื่อสินค้าทั้งหมด",
- * "content": {
- * "application/json": {
- * "schema": {
- * "type": "array",
- * "items": { "$ref": "#/components/schemas/Product" }
- * }
- * }
- * }
- * }
- * }
- * }
- * }
- * }
- */
-
 // GET /api/products
 router.get('/', async (req, res) => {
   try {
@@ -58,7 +14,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/products/:id  (เช่น /api/products/1)
+// GET /api/products/:id  
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;

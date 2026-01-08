@@ -28,7 +28,7 @@ exports.logAction = async (
   }
 };
 
-// ✅ ดึง Audit Log สำหรับ Admin
+// ฟังก์ชันดึง Audit Log สำหรับ Admin
 exports.getAuditLog = async (filters = {}) => {
   const { userId, action, limit = 100, offset = 0 } = filters;
 

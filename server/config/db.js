@@ -2,18 +2,17 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const isProduction = process.env.NODE_ENV === 'production'; // ทำงานจริงให้ใช้ Production
+const isProduction = process.env.NODE_ENV === 'production'; 
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
   ssl: isProduction
-    ? { rejectUnauthorized: false } // สำหรับ Production (เช่น Heroku, Render, Neon)
-    : false, // สำหรับ Localhost (ปิด SSL)
+    ? { rejectUnauthorized: false } 
+    : false, 
 
-  // Performance Config (ปรับตามความเหมาะสม)
-  max: 20, // จำนวน Connection สูงสุดพร้อมกัน
-  idleTimeoutMillis: 30000, // ตัด Connection ทิ้งถ้าไม่ได้ใช้เกิน 30 วิ
-  connectionTimeoutMillis: 2000 // ถ้ารอต่อ Database นานเกิน 2 วิ ให้ Error เลย
+  max: 20, 
+  idleTimeoutMillis: 30000, 
+  connectionTimeoutMillis: 2000 
 });
 
 module.exports = pool;

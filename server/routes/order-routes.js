@@ -54,55 +54,7 @@ router.post('/create-payment-intent', authenticateUser, async (req, res) => {
   }
 });
 
-/**
- * @swagger
- * {
- * "/orders/place-order": {
- * "post": {
- * "summary": "สั่งซื้อสินค้า (ต้องมี Token)",
- * "tags": ["Orders"],
- * "security": [{ "bearerAuth": [] }],
- * "requestBody": {
- * "required": true,
- * "content": {
- * "application/json": {
- * "schema": {
- * "type": "object",
- * "properties": {
- * "items": {
- * "type": "array",
- * "items": {
- * "type": "object",
- * "properties": {
- * "id": { "type": "integer" },
- * "quantity": { "type": "integer" }
- * }
- * }
- * },
- * "totalAmount": { "type": "number" },
- * "shippingAddress": {
- * "type": "object",
- * "properties": {
- * "name": { "type": "string" },
- * "address": { "type": "string" },
- * "phone": { "type": "string" }
- * }
- * }
- * }
- * }
- * }
- * }
- * },
- * "responses": {
- * "201": { "description": "สั่งซื้อสำเร็จ" },
- * "401": { "description": "ไม่ได้ Login" }
- * }
- * }
- * }
- * }
- */
-
-// ✅ เพิ่ม Auth และ Validation
+// เพิ่ม Auth และ Validation
 router.post(
   '/place-order',
   authenticateUser,
@@ -112,11 +64,11 @@ router.post(
     const client = await pool.connect();
     try {
       const { items, totalAmount, shippingAddress } = req.body;
-      const userId = req.userId; // ✅ จาก Token
+      const userId = req.userId; 
 
       await client.query('BEGIN');
 
-      // ✅ Verify prices from DB
+      // Verify prices from DB
       const result = await client.query(
         'SELECT id, price, stock_quantity FROM products WHERE id = ANY($1) AND is_active = true',
         [items.map((i) => i.id)]
@@ -134,7 +86,7 @@ router.post(
         calculatedTotal += product.price * item.quantity;
       }
 
-      // ✅ Verify total amount matches
+      // Verify total amount matches
       if (Math.abs(calculatedTotal - totalAmount) > 1) {
         throw new Error('Price mismatch detected');
       }
@@ -174,7 +126,7 @@ router.post(
   }
 );
 
-// ✅ เพิ่ม Auth + Ownership Check
+// เพิ่ม Auth + Ownership Check
 router.get('/user/:userId', authenticateUser, authorizeOwner('userId'), async (req, res) => {
   try {
     const { userId } = req.params;
@@ -208,12 +160,10 @@ router.get('/user/:userId', authenticateUser, authorizeOwner('userId'), async (r
   }
 });
 
-// ฟังก์ชันสุ่มเลขพัสดุ (Mock)
 const generateTrackingNumber = () => {
   // สุ่มเลข 9 หลัก เช่น TH837492810
   const randomNum = Math.floor(100000000 + Math.random() * 900000000);
   return `TH${randomNum}`;
-  // หรือถ้าอยากเท่ๆ ให้เข้าธีมร้านเกม: return `DEV${randomNum}XP`;
 };
 
 router.patch('/:id/status', async (req, res) => {
@@ -230,9 +180,7 @@ router.patch('/:id/status', async (req, res) => {
     let values = [];
 
     // --- Logic สร้างเลขพัสดุ ---
-    // ถ้าสถานะเป็น 'shipped' ให้สร้างเลขพัสดุ (ถ้ายังไม่มี)
     if (status === 'shipped') {
-      // เช็คก่อนว่ามีเลขหรือยัง (จะได้ไม่เปลี่ยนเลขไปเรื่อย)
       const checkOrder = await client.query('SELECT tracking_number FROM orders WHERE id = $1', [
         id
       ]);
@@ -240,21 +188,17 @@ router.patch('/:id/status', async (req, res) => {
       if (!checkOrder.rows[0].tracking_number) {
         trackingNumber = generateTrackingNumber();
 
-        // อัปเดตทั้ง status และ tracking_number
         query = 'UPDATE orders SET status = $1, tracking_number = $2 WHERE id = $3 RETURNING *';
         values = [status, trackingNumber, id];
       } else {
-        // มีเลขอยู่แล้ว อัปเดตแค่ status
         query = 'UPDATE orders SET status = $1 WHERE id = $2 RETURNING *';
         values = [status, id];
       }
     } else {
-      // สถานะอื่น (paid, completed) อัปเดตปกติ
       query = 'UPDATE orders SET status = $1 WHERE id = $2 RETURNING *';
       values = [status, id];
     }
 
-    // 1. รัน Query อัปเดต
     const updateResult = await client.query(query, values);
 
     if (updateResult.rows.length === 0) {
@@ -262,7 +206,6 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(404).json({ message: 'Order not found' });
     }
 
-    // 2. Logic ตัดสต็อก (จากรอบที่แล้ว)
     if (status === 'paid') {
       const orderItems = await client.query(
         'SELECT product_id, quantity FROM order_items WHERE order_id = $1',

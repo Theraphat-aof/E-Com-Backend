@@ -9,7 +9,6 @@ async function seedAdmin() {
 
     const adminEmail = 'admin@ecommerce.local';
 
-    // ตรวจสอบว่า Admin มีอยู่แล้วไหม
     const existing = await client.query('SELECT id FROM users WHERE email = $1 AND role = $2', [
       adminEmail,
       'admin'
@@ -20,7 +19,6 @@ async function seedAdmin() {
       process.exit(0);
     }
 
-    // สร้าง Admin User
     const adminUser = await client.query(
       `INSERT INTO users (username, email, role, is_active, created_at) 
        VALUES ($1, $2, $3, $4, NOW()) 

@@ -1,10 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
-// ✅ เพิ่มบรรทัดนี้ครับ
 const { authenticateUser, authorizeAdmin } = require('../middleware/auth');
 
-// ✅ Health Check Endpoint (ไม่ต้องใช้ Auth)
+// Health Check Endpoint 
 router.get('/health', async (req, res) => {
   try {
     const dbCheck = await pool.query('SELECT NOW()');
@@ -22,7 +21,7 @@ router.get('/health', async (req, res) => {
   }
 });
 
-// ✅ ดึง Server Stats (ต้องใช้ Auth)
+// ดึง Server Stats 
 router.get('/stats', authenticateUser, authorizeAdmin, async (req, res) => {
   try {
     const userCount = await pool.query('SELECT COUNT(*) FROM users');

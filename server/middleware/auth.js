@@ -13,7 +13,6 @@ const checkAdmin = (req, res, next) => {
       return res.status(401).json({ message: 'Access Denied: No Token Provided' });
     }
 
-    // ใช้ process.env.JWT_SECRET เท่านั้น ห้าม Hardcode 'secret123' ใน Production เด็ดขาด!
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     if (decoded.role !== 'admin') {
@@ -28,7 +27,6 @@ const checkAdmin = (req, res, next) => {
   }
 };
 
-// ✅ Authenticate User (ตรวจสอบ Token)
 const authenticateUser = (req, res, next) => {
   try {
     const authHeader = req.headers['authorization'];
@@ -52,7 +50,7 @@ const authenticateUser = (req, res, next) => {
   }
 };
 
-// ✅ Authorize Admin Only
+// Authorize Admin Only
 const authorizeAdmin = (req, res, next) => {
   if (req.userRole !== 'admin') {
     return res.status(403).json({ error: 'Forbidden: Admin access required' });
@@ -60,7 +58,7 @@ const authorizeAdmin = (req, res, next) => {
   next();
 };
 
-// ✅ Authorize Owner (ผู้ใช้ดูของตัวเองเท่านั้น)
+// Authorize Owner (ผู้ใช้ดูของตัวเองเท่านั้น)
 const authorizeOwner = (paramName = 'userId') => {
   return (req, res, next) => {
     const targetUserId = parseInt(req.params[paramName]);
@@ -72,7 +70,7 @@ const authorizeOwner = (paramName = 'userId') => {
   };
 };
 
-// ✅ Input Validation
+// Input Validation
 const validateOrderCreation = [
   body('items').isArray({ min: 1 }).withMessage('Items must be non-empty array'),
   body('items.*.id').isInt({ min: 1 }).withMessage('Product ID invalid'),

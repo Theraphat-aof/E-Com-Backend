@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
-// ✅ Import มาถูกต้องแล้ว ใช้ตัวแปรพวกนี้แทน checkAdmin
 const { authenticateUser, authorizeAdmin } = require('../middleware/auth');
 const loggerService = require('../services/logger-service');
 
@@ -10,10 +9,7 @@ const generateTrackingNumber = () => {
   return `TH${randomNum}`;
 };
 
-// --------------------------------------------------------
-// 1. GET: ดึงออเดอร์ทั้งหมด
-// --------------------------------------------------------
-// ❌ แก้จาก checkAdmin เป็น authenticateUser, authorizeAdmin
+// GET: ดึงออเดอร์ทั้งหมด
 router.get('/orders', authenticateUser, authorizeAdmin, async (req, res) => {
   try {
     const query = `
@@ -45,9 +41,7 @@ router.get('/orders', authenticateUser, authorizeAdmin, async (req, res) => {
   }
 });
 
-// --------------------------------------------------------
-// 2. PATCH: อัปเดตสถานะ
-// --------------------------------------------------------
+// PATCH: อัปเดตสถานะ
 router.patch('/orders/:id/status', authenticateUser, authorizeAdmin, async (req, res) => {
   const client = await pool.connect();
   try {
@@ -68,7 +62,6 @@ router.patch('/orders/:id/status', authenticateUser, authorizeAdmin, async (req,
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // ✅ ประกาศตัวแปร result ไว้ข้างนอก เพื่อให้ใช้ได้ครอบคลุมทุกบล็อก if/else
     let result;
 
     if (status === 'shipped') {
@@ -78,27 +71,23 @@ router.patch('/orders/:id/status', authenticateUser, authorizeAdmin, async (req,
 
       if (!checkOrder.rows[0].tracking_number) {
         const trackingNumber = generateTrackingNumber();
-        // Case 1: Shipped + New Tracking
         result = await client.query(
           'UPDATE orders SET status = $1, tracking_number = $2, updated_at = NOW() WHERE id = $3 RETURNING *',
           [status, trackingNumber, id]
         );
       } else {
-        // Case 2: Shipped but has Tracking
         result = await client.query(
           'UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
           [status, id]
         );
       }
     } else {
-      // Case 3: Normal Status Update
       result = await client.query(
         'UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
         [status, id]
       );
     }
 
-    // ✅ บันทึก Log (ย้ายมาไว้รวมกันตรงนี้ได้ เพราะ result มีค่าแล้ว)
     await loggerService.logAction(
       req.userId,
       'UPDATE_ORDER_STATUS',
@@ -120,10 +109,7 @@ router.patch('/orders/:id/status', authenticateUser, authorizeAdmin, async (req,
   }
 });
 
-// --------------------------------------------------------
-// 3. GET: Dashboard Stats
-// --------------------------------------------------------
-// ❌ แก้จาก checkAdmin เป็น authenticateUser, authorizeAdmin
+// GET: Dashboard Stats
 router.get('/stats', authenticateUser, authorizeAdmin, async (req, res) => {
   try {
     const statsQuery = `
@@ -141,9 +127,7 @@ router.get('/stats', authenticateUser, authorizeAdmin, async (req, res) => {
   }
 });
 
-// ... ส่วน Audit Log ถูกต้องแล้ว ...
 router.get('/audit-logs', authenticateUser, authorizeAdmin, async (req, res) => {
-  // ... code เดิม ...
   try {
     const { userId, action, limit = 100, offset = 0 } = req.query;
 

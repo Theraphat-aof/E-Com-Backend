@@ -1,9 +1,8 @@
 // services/chat-service.js
 const pool = require('../config/db');
 
-// 1. บันทึกข้อความ
+// บันทึกข้อความ
 exports.saveMessage = async (roomId, senderRole, message, userId) => {
-  // ✅ Validate inputs
   if (!/^[a-zA-Z0-9_-]{1,50}$/.test(roomId)) {
     throw new Error('Invalid room ID');
   }
@@ -25,7 +24,7 @@ exports.saveMessage = async (roomId, senderRole, message, userId) => {
   return result.rows[0];
 };
 
-// 2. ดึงประวัติการคุยตามห้อง
+// ดึงประวัติการคุยตามห้อง
 exports.getMessagesByRoom = async (roomId) => {
   if (!/^[a-zA-Z0-9_-]{1,50}$/.test(roomId)) {
     throw new Error('Invalid room ID');
@@ -42,8 +41,7 @@ exports.getMessagesByRoom = async (roomId) => {
   return result.rows;
 };
 
-// 3. (เสริม) ดึงรายชื่อห้องที่เคยคุยทั้งหมด (สำหรับ Admin Sidebar)
-// คำสั่งนี้จะดึงข้อความล่าสุดของแต่ละห้องมาแสดง
+// ดึงรายชื่อห้องที่เคยคุยทั้งหมด (สำหรับ Admin Sidebar)
 exports.getRecentChats = async () => {
   const query = `
     SELECT DISTINCT ON (room_id) 

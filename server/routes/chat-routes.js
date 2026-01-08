@@ -4,16 +4,14 @@ const router = express.Router();
 const chatService = require('../services/chat-service');
 const { validateChatInput, handleValidationErrors } = require('../middleware/auth');
 
-// API: ดึงรายชื่อคนที่เคยทักมาทั้งหมด (ใช้ใน Admin Sidebar)
 // GET /api/chat/rooms
 router.get('/rooms', async (req, res) => {
   try {
     const chats = await chatService.getRecentChats();
 
-    // แปลงข้อมูลให้ตรงกับ Format ที่ Frontend ใช้
     const formattedChats = chats.map((chat) => ({
       room: chat.room_id,
-      user: chat.sender_role === 'admin' ? 'Admin' : 'User', // หรือจะดึงชื่อ User จริงก็ได้
+      user: chat.sender_role === 'admin' ? 'Admin' : 'User', 
       lastMsg: chat.message,
       time: new Date(chat.created_at).toISOString()
     }));
@@ -25,7 +23,6 @@ router.get('/rooms', async (req, res) => {
   }
 });
 
-// API: ดึงประวัติแชทของห้องใดห้องหนึ่ง
 // GET /api/chat/history/:roomId
 router.get('/history/:roomId', validateChatInput, handleValidationErrors, async (req, res) => {
   try {

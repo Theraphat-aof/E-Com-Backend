@@ -1,23 +1,20 @@
 const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg'); // เรียกใช้ pg โดยตรง ไม่ผ่าน config/db.js
+const { Pool } = require('pg'); 
 require('dotenv').config();
 
-// 1. ตรวจสอบว่ามีค่า Connection String หรือไม่
 if (!process.env.DATABASE_URL) {
   console.error('❌ Error: DATABASE_URL is missing in environment variables.');
   console.error('   Please check your .env file (local) or Render Environment settings.');
   process.exit(1);
 }
 
-// 2. สร้าง Pool ใหม่สำหรับ Migration โดยเฉพาะ
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // ⚠️ สำคัญ: Render + Supabase ต้องเปิด SSL
   ssl: {
     rejectUnauthorized: false
   },
-  connectionTimeoutMillis: 10000 // รอเชื่อมต่อสูงสุด 10 วินาที
+  connectionTimeoutMillis: 10000 
 });
 
 async function runMigrations() {
@@ -30,7 +27,6 @@ async function runMigrations() {
 
     console.log('🚀 Starting migrations...');
 
-    // สร้าง migrations table ถ้ายังไม่มี
     await client.query(`
       CREATE TABLE IF NOT EXISTS migrations (
         id SERIAL PRIMARY KEY,
@@ -41,7 +37,6 @@ async function runMigrations() {
 
     const migrationPath = path.join(__dirname, '../migrations');
 
-    // ตรวจสอบว่ามีโฟลเดอร์ migrations จริงไหม
     if (!fs.existsSync(migrationPath)) {
       console.error(`❌ Error: Migration folder not found at ${migrationPath}`);
       process.exit(1);
@@ -56,7 +51,6 @@ async function runMigrations() {
     for (const file of files) {
       if (!file.endsWith('.sql')) continue;
 
-      // ตรวจสอบว่า migration นี้รันแล้วหรือยัง
       const existing = await client.query('SELECT * FROM migrations WHERE name = $1', [file]);
 
       if (existing.rows.length > 0) {
@@ -69,16 +63,14 @@ async function runMigrations() {
 
       try {
         await client.query('BEGIN');
-        // รัน SQL ทีละไฟล์
         await client.query(sql);
-        // บันทึกว่าทำเสร็จแล้ว
         await client.query('INSERT INTO migrations (name) VALUES ($1)', [file]);
         await client.query('COMMIT');
         console.log(`✅ Executed: ${file}`);
       } catch (err) {
         await client.query('ROLLBACK');
         console.error(`❌ Failed processing file: ${file}`);
-        throw err; // โยน error ออกไปเพื่อให้ catch ด้านล่างทำงาน
+        throw err; 
       }
     }
 
@@ -94,7 +86,7 @@ async function runMigrations() {
     process.exit(1);
   } finally {
     if (client) client.release();
-    await pool.end(); // ปิด Connection Pool
+    await pool.end(); 
   }
 }
 
