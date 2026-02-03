@@ -21,10 +21,20 @@ const chatService = require('./services/chat-service');
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
 const healthRoutes = require('./routes/health-routes');
+const pool = require('./config/db'); // Import DB pool for startup check
 
 const app = express();
 app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
+
+// Test DB Connection on Startup
+pool.connect().then(client => {
+  console.log('✅ Connected to Database successfully');
+  client.release();
+}).catch(err => {
+  console.error('❌ Failed to connect to Database on startup:', err.message);
+  // Optional: process.exit(1) if you want to crash immediately, but better to keep server running for logs
+});
 
 // Security Middleware
 app.use(helmet()); 
