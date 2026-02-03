@@ -7,7 +7,7 @@ const connectionString = process.env.DATABASE_URL || `postgresql://${process.env
 
 const pool = new Pool({
   connectionString: connectionString,
-  ssl: isProduction || (connectionString && !connectionString.includes('localhost') && !connectionString.includes('127.0.0.1'))
+  ssl: (process.env.RENDER || isProduction || (connectionString && !connectionString.includes('localhost') && !connectionString.includes('127.0.0.1')))
     ? { rejectUnauthorized: false } 
     : false, 
 

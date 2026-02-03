@@ -9,8 +9,8 @@ router.get('/', async (req, res) => {
     const products = await productService.getAllProducts();
     res.json(products);
   } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
+    console.error('Error fetching products:', err);
+    res.status(500).json({ error: 'Server Error', details: process.env.NODE_ENV === 'development' ? err.message : undefined });
   }
 });
 
