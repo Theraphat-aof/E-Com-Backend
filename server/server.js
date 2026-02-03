@@ -15,7 +15,7 @@ const adminRoutes = require('./routes/admin-routes');
 const chatRoutes = require('./routes/chat-routes');
 const { authenticateUser } = require('./middleware/auth');
 
-// --- Import Services (สำหรับ Socket) ---
+// --- Import Services  ---
 const chatService = require('./services/chat-service');
 
 const swaggerUi = require('swagger-ui-express');
@@ -26,13 +26,13 @@ const app = express();
 app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
 
-// ✅ Security Middleware
-app.use(helmet()); // ✅ เพิ่ม Security Headers
+// Security Middleware
+app.use(helmet()); 
 app.use(
   cors({
     origin: [
       'http://localhost:5173',
-      'https://hathamshop.vercel.app' // ✅ ใส่ตรงๆ แบบนี้ชัวร์กว่า
+      'https://hathamshop.vercel.app' 
     ],
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'DELETE'],
@@ -40,20 +40,20 @@ app.use(
   })
 );
 
-// ✅ Body Size Limit
+// Body Size Limit
 app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: false, limit: '10kb' }));
 
-// ✅ Rate Limiting
+// Rate Limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000, 
   max: 100,
   message: 'Too many requests, please try again later'
 });
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5, // เข้มข้นกว่า
+  max: 5, 
   message: 'Too many login attempts'
 });
 
@@ -63,9 +63,9 @@ app.use('/api/auth/', authLimiter);
 // --- Routes Setup ---
 app.use('/api/products', productRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/orders', authenticateUser, orderRoutes); // ✅ เพิ่ม Auth
+app.use('/api/orders', authenticateUser, orderRoutes); 
 app.use('/api/admin', adminRoutes);
-app.use('/api/chat', authenticateUser, chatRoutes); // ✅ เพิ่ม Auth
+app.use('/api/chat', authenticateUser, chatRoutes);
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/api/health', healthRoutes);
@@ -78,19 +78,18 @@ app.get('/', (req, res) => {
 // Create HTTP server
 const server = http.createServer(app);
 
-// ✅ Socket.io ต้อง Authenticate
 const io = new Server(server, {
   cors: {
     origin: [
       'http://localhost:5173',
-      'https://hathamshop.vercel.app' // ✅ ต้องตรงกัน
+      'https://hathamshop.vercel.app' 
     ],
     methods: ['GET', 'POST'],
     credentials: true
   }
 });
 
-// ✅ Socket Authentication Middleware
+// Socket Authentication Middleware
 io.use((socket, next) => {
   const token = socket.handshake.auth.token;
 
@@ -120,7 +119,6 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   console.log(`User ${socket.userId} connected`);
 
-  // 1. Admin Login: เข้าห้อง admin_room เพื่อรอรับแจ้งเตือน
   socket.on('admin_login', () => {
     console.log(`[admin_login] User ${socket.userId}, role: ${socket.userRole}`);
     if (socket.userRole !== 'admin') {
@@ -132,9 +130,7 @@ io.on('connection', (socket) => {
     console.log(`[admin_login] Admin ${socket.userId} successfully joined admin_room`);
   });
 
-  // 2. Join Room: เข้าห้องแชท + โหลดประวัติเก่าจาก DB
   socket.on('join_room', async (room) => {
-    // ✅ Validate room format
     if (!room || !/^[a-zA-Z0-9_-]{1,50}$/.test(room)) {
       console.error(`[join_room] Invalid room ID from user ${socket.userId}: "${room}"`);
       socket.emit('error', 'Invalid room ID format');
@@ -144,11 +140,9 @@ io.on('connection', (socket) => {
     console.log(`[join_room] User ${socket.userId} (${socket.userRole}) joined room ${room}`);
 
     try {
-      // ดึงประวัติแชทจาก Database ผ่าน Service
       const messages = await chatService.getMessagesByRoom(room);
       console.log(`[join_room] Loaded ${messages.length} messages from room ${room}`);
 
-      // จัดรูปแบบข้อมูลก่อนส่งกลับไป Frontend
       const formattedHistory = messages.map((msg) => ({
         id: msg.id,
         room: msg.room_id,
@@ -163,7 +157,6 @@ io.on('connection', (socket) => {
         isAdmin: msg.sender_role === 'admin'
       }));
 
-      // ส่งประวัติกลับไปให้คนที่เพิ่ง Join
       socket.emit('load_chat_history', formattedHistory);
     } catch (err) {
       console.error(`[join_room] Error loading chat history for room ${room}:`, err.message);
@@ -171,10 +164,8 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 3. Send Message: รับข้อความ -> บันทึก DB -> ส่งต่อ
   socket.on('send_message', async (data) => {
     try {
-      // ✅ Validate input
       if (!data || !data.room) {
         console.error(`[send_message] Missing room ID from user ${socket.userId}`);
         socket.emit('error', 'Room ID is required');
@@ -195,7 +186,6 @@ io.on('connection', (socket) => {
 
       console.log(`[send_message] User ${socket.userId} sending message to room ${data.room}`);
 
-      // Normalize roles: some JWTs use 'customer' instead of 'user'
       const normalizedRole = socket.userRole === 'customer' ? 'user' : socket.userRole || 'user';
       console.log(`[send_message] Normalized role for user ${socket.userId}: ${normalizedRole}`);
 
@@ -203,12 +193,11 @@ io.on('connection', (socket) => {
         data.room,
         normalizedRole,
         data.message,
-        socket.userId // ✅ เก็บ userId
+        socket.userId 
       );
 
       console.log(`[send_message] Message saved with ID ${savedMsg.id}`);
 
-      // เตรียมข้อมูลตอบกลับ (ใช้ ID จริงจาก DB เพื่อป้องกันข้อความซ้ำ)
       const responseData = {
         ...data,
         id: savedMsg.id,
@@ -217,11 +206,9 @@ io.on('connection', (socket) => {
         time: new Date(savedMsg.created_at).toLocaleTimeString('th-TH')
       };
 
-      // ส่งข้อความหาทุกคนในห้องนั้น (User <-> Admin)
       socket.to(data.room).emit('receive_message', responseData);
       console.log(`[send_message] Broadcasted to room ${data.room}`);
 
-      // ถ้าคนส่งไม่ใช่ Admin -> แจ้งเตือนเข้าห้อง Admin (Sidebar Alert)
       if (socket.userRole !== 'admin') {
         io.to('admin_room').emit('new_message_alert', responseData);
         console.log('[send_message] Alert sent to admin_room');
